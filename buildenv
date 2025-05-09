@@ -1,0 +1,237 @@
+# Update bump details accordingly. Use bump check to confirm.
+# b u m p: gradle-version /GRADLE_VERSION="(.*)"/ https://services.gradle.org/distributions/|re:/gradle-([\d.]+)-all.zip/|semver:*
+set -x
+GRADLE_VERSION="8.14" # Specify a stable release
+# export ZOPEN_STABLE_TAG="v${gradle_VERSION}"
+
+###
+### Build control file for the gradle port
+###
+
+###
+### Initial custom environment variables
+###
+export GRADLE_ZIP_SUFFIX="-bin.zip"
+#export GRADLE_ZIP_SUFFIX="-all.zip"
+
+###
+### Required Environment Variables
+###
+
+## Specify the default build line, either 'DEV' or 'STABLE' (default: STABLE)
+export ZOPEN_BUILD_LINE="STABLE"
+
+## Required IF ZOPEN_BUILD_LINE='STABLE'
+export ZOPEN_STABLE_URL="https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}${GRADLE_ZIP_SUFFIX}"  # Specify the stable build URL (either git or tarball)
+export ZOPEN_STABLE_DEPS="check_java unzip zip" # Specify the stable build dependencies.
+
+## Required IF ZOPEN_BUILD_LINE='DEV'
+export ZOPEN_DEV_URL="https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}${GRADLE_ZIP_SUFFIX}"   # Specify the dev build URL
+export ZOPEN_DEV_DEPS="check_java unzip zip"  # Specify the dev build dependencies
+
+## Specify a space-delimited list of applicable categories.
+## See tool_categories.txt for valid options
+export ZOPEN_CATEGORIES="development devops build_system"
+
+## Runtime z/OS Open Tool dependencies to be installed alongside the tool.
+export ZOPEN_RUNTIME_DEPS="check_java bash"
+
+## Runtime system prerequisites; supply the name of the system pre-requisties.
+## Current available prerequisites: zos24 zos25 zos31 procfs
+export ZOPEN_SYSTEM_PREREQ=""
+
+
+###
+### Build stage control environment variables
+###
+
+export ZOPEN_BOOTSTRAP="skip" ## Bootstrap program to run (defaults to './bootstrap')
+export ZOPEN_CHECK="skip"     ## Check program to run (defaults to 'make')
+export ZOPEN_CONFIGURE="skip" ## Configuration program to run (defaults to './configure')
+export ZOPEN_INSTALL="zopen_gradle_install"   ## Installation program to run (defaults to 'make')
+export ZOPEN_MAKE="skip"      ## Build program to run (defaults to 'make')
+export ZOPEN_CLEAN="gradle_clean_build"         ## Clean up program to run (defaults to 'make')
+
+
+###
+### Required user-supplied functions
+###
+
+zopen_check_results()
+{
+  dir="$1"
+  pfx="$2"
+  chk="$1/$2_check.log"
+
+  # Echo the following information to gauge build health
+  echo "actualFailures:0"
+  echo "totalTests:1"
+  echo "expectedFailures:0"
+  echo "expectedTotalTests:1"
+}
+
+zopen_get_version()
+{
+  export JAVA_HOME=$(dirname $(dirname $(/bin/type java | awk ' { print $3; }')))
+  bin/gradle --version | awk '/Gradle/ { print $2}'
+}
+
+###
+### Optional user-supplied functions for zopen-build
+###
+
+zopen_append_to_env()
+{
+cat <<ZZ
+export GRADLE_HOME="\$PWD"
+ZZ
+}
+
+#zopen_append_to_setup(){
+  ## This function runs as part of generation of the setup.sh file. The output of
+  ## the function is appended to setup.sh.
+#}
+
+#zopen_append_to_validate_install(){
+  ## This function runs as part of generation of the install_test.sh file. The
+  ## output of the function is appended to install_test.sh script.
+#}
+
+#zopen_install_caveats(){
+  ## This function is run post install. All stdout messages are captured and
+  ## added to the metadata.json as installation caveats.
+#}
+
+#zopen_append_to_zoslib_env(){
+  ## This function runs as part of generation of the C function zoslib_env_hook,
+  ## which can be used to set environment variables before main is run.
+#}
+
+#zopen_init(){
+  ## This function runs after code is downloaded and patched but before the code
+  ## is built.
+#}
+
+#zopen_post_buildenv(){
+  ## This function runs after the 'buildenv' is processed.
+#}
+
+zopen_post_extract(){
+  ## Runs after the extraction of the file from a compressed archive (tar/zip)
+  # Gradle project does not have any tagging as it's done off z - so unzip
+  # does not autotag; attempt to do this manually.
+  dir="$1"
+  (
+    cd "${dir}" || exit 1
+    echo "Attempting to tag files in ${dir}..."
+    find . -type f \( \
+      \( \( -name '*.jar' -o -name '*.zip' \) -exec chtag -b {} \; \) -o \
+      \( \( -name 'gradle' -o -name 'gradle.bat' -o -name "LICENSE" -o -name "readme.txt" -o -name "NOTICE" -o -name "README" \) -exec chtag -tc "ISO8859-1" {} \; \) -o \
+      -exec printf "File '%s' not in find lists; not tagged\n" {} \; \
+    \)
+  )
+}
+
+#zopen_pre_build(){
+  ## This function runs before the 'make' step of the build is run.
+#}
+
+#zopen_pre_check(){
+  ## This function runs before the 'check' step of the build is run.
+#}
+
+zopen_pre_configure(){
+  ln -fs "gradle-${GRADLE_VERSION}" "gradle-${GRADLE_VERSION}${GRADLE_ZIP_SUFFIX%%.zip}"
+}
+
+#zopen_pre_install(){
+  ## This function runs before the 'install' step of the build is run.
+#}
+
+#zopen_post_install(){
+  ## This function runs after the 'install' step of the build is run.
+#}
+#zopen_post_install() 
+#{
+#  (
+#    cd $ZOPEN_INSTALL_DIR/bin
+##    ls -l
+##    ln -s gradle gradle_sl
+#    ln -s gradle.bat  gradle_bat.sl
+#    ls -l
+#  )
+#  _zopen_addgPrefix $ZOPEN_INSTALL_DIR
+#}
+
+zopen_pre_patch(){
+  ## This function runs before the 'patch' step of the build is run.
+  # Copy the gradle launch script ready for patching to resolve gradle issues
+  # with starting on z/OS: https://github.com/gradle/gradle/issues/32153
+  pwd
+  mv "bin/gradle" "bin/gradle.utf8"
+  chtag -tc "UTF-8" "bin/gradle.utf8"
+  iconv -f "UTF-8" -t "IBM-1047" "bin/gradle.utf8" > "bin/gradle.ibm1047"
+  chtag -tc "IBM-1047" "bin/gradle.ibm1047"
+  chmod +x "bin/gradle.ibm1047"
+  ln -s "gradle.ibm1047" "bin/gradle"
+  git add .
+  git commit -m "Add iconv'd scripts and symlinks"
+  git reset --hard   # Seems to be needed??
+}
+
+#zopen_pre_terminate(){
+  ## This function runs before 'zopen build' terminates.
+#}
+
+
+###
+### Optional build control variables
+###
+
+#export ZOPEN_EXTRA_CFLAGS="" ## C compiler flags to append to CFLAGS (defaults to '').
+#export ZOPEN_EXTRA_CPPFLAGS="" ## C,C++ pre-processor flags to append to CPPFLAGS (defaults to '')
+#export ZOPEN_EXTRA_CXXFLAGS="" ## C++ compiler flags to append to CXXFLAGS (defaults to '')
+#export ZOPEN_EXTRA_LDFLAGS="" ## C,C++ linker flags to append to LDFLAGS (defaults to '')
+#export ZOPEN_EXTRA_LIBS="" ## C,C++ libraries to append to LIBS (defaults to '')
+#export ZOPEN_BOOTSTRAP_OPTS="" ## Options to pass to bootstrap program (defaults to '')
+#export ZOPEN_CHECK_MINIMAL="" ## Check program will not be passed CFLAGS, LDFLAGS, CPPFLAGS options but will get them from env vars.
+export ZOPEN_CHECK_OPTS="" ## Options to pass to check program (defaults to 'check')
+#export ZOPEN_CHECK_TIMEOUT="" ## Timeout limit in seconds for the check program (defaults to '12600' # 3.5 hours)
+export ZOPEN_CLEAN_OPTS="" ## Options to pass to clean up  program (defaults to 'clean')
+#export ZOPEN_CONFIGURE_MINIMAL="" ## Configuration program will not be passed CFLAGS, LDFLAGS, CPPFLAGS options but will get them from env vars.
+export ZOPEN_CONFIGURE_OPTS="" ## Options to pass to configuration program (defaults to '--prefix=${ZOPEN_INSTALL_DIR}')
+#export ZOPEN_EXTRA_CONFIGURE_OPTS="" ## Extra configure options to pass to configuration program. (defaults to '')
+export ZOPEN_INSTALL_OPTS="" ## Options to pass to installation program (defaults to 'install')
+#export ZOPEN_MAKE_MINIMAL="" ## Build program will not be passed CFLAGS, LDFLAGS, CPPFLAGS options but will get them from env vars.
+export ZOPEN_MAKE_OPTS="" ## Options to pass to build program (defaults to '-j${ZOPEN_NUM_JOBS}')
+#export ZOPEN_PATCH_DIR="" ## Specify directory from which patches should be applied.
+
+###
+### Restricted Usage - only set in ports if necessary
+###
+
+## Don't add zoslib as a dependency; most ports should keep this unset
+export ZOPEN_DONT_ADD_ZOSLIB_DEP="dont add"
+export ZOPEN_TYPE="GIT"
+
+###
+### Additional user-defined custom code  - runs during script source
+###
+
+# Clear existing work directory
+rm -f "gradle-${GRADLE_VERSION}${GRADLE_ZIP_SUFFIX%%.zip}"
+ln -s "gradle-${GRADLE_VERSION}" "gradle-${GRADLE_VERSION}${GRADLE_ZIP_SUFFIX%%.zip}"
+
+export ZOPEN_COMP="skip"
+
+gradle_clean_build(){
+  rm -f "gradle-${GRADLE_VERSION}${GRADLE_ZIP_SUFFIX%%.zip}" "gradle-${GRADLE_VERSION}"
+}
+
+zopen_gradle_install()
+{
+  mkdir -p "${ZOPEN_INSTALL_DIR}/bin" "${ZOPEN_INSTALL_DIR}/lib"
+  cp -r "$PWD/bin/" "${ZOPEN_INSTALL_DIR}/bin/"
+  cp -r "$PWD/lib/" "${ZOPEN_INSTALL_DIR}/lib/"
+  return 0
+}

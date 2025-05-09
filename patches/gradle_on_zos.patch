@@ -1,0 +1,67 @@
+diff --git a/bin/gradle.ibm1047 b/bin/gradle.ibm1047
+index ace89a4..d1137f1 100755
+--- a/bin/gradle.ibm1047
++++ b/bin/gradle.ibm1047
+@@ -86,7 +86,10 @@ done
+ # shellcheck disable=SC2034
+ APP_BASE_NAME=${0##*/}
+ # Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
+-APP_HOME=$( cd -P "${APP_HOME:-./}.." > /dev/null && printf '%s\n' "$PWD" ) || exit
++# Replace the POSIX.1-2001 compliant code below with previous older code, compliant with POSIX.2
++# - See gradle issue https://github.com/gradle/gradle/issues/32153
++#APP_HOME=$( cd -P "${APP_HOME:-./}.." > /dev/null && printf '%s\n' "$PWD" ) || exit
++APP_HOME=$( cd "${APP_HOME:-./}.." > /dev/null && pwd -P ) || exit
+ 
+ # Use the maximum available, or set MAX_FD != -1 to use that value.
+ MAX_FD=maximum
+@@ -107,11 +110,13 @@ cygwin=false
+ msys=false
+ darwin=false
+ nonstop=false
++zos=false
+ case "$( uname )" in                #(
+   CYGWIN* )         cygwin=true  ;; #(
+   Darwin* )         darwin=true  ;; #(
+   MSYS* | MINGW* )  msys=true    ;; #(
+   NONSTOP* )        nonstop=true ;;
++  OS/390*)          zos=true     ;;
+ esac
+ 
+ CLASSPATH="\\\"\\\""
+@@ -202,8 +207,20 @@ fi
+ 
+ 
+ # Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+-DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'" \"-javaagent:$APP_HOME/lib/agents/gradle-instrumentation-agent-8.14.jar\""
++if $zos; then
++    # The following is a hack to force the daemon to actually listen on multi-stack platforms
++    # such as z/OS; the multiple stacks seem to cause issues and binding to 0.0.0.0 which then
++    # does not allow a remote connection from !0.0.0.0. Code-walking the gradle code
++    # yields the following environment variable which hard-codes the listener ip.
++    export OPENSHIFT_IP="127.0.0.1"
++    DEFAULT_JVM_OPTS="\"-Dfile.encoding=UTF-8\" \"-Djava.net.preferIPv4Stack=true\" \"-javaagent:$APP_HOME/lib/agents/gradle-instrumentation-agent-8.14.jar\""
++    # Need to ensure that any terminal input is autoconverted
++    export _BPXK_AUTOCVT=ON
++else
++    DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'" \"-javaagent:$APP_HOME/lib/agents/gradle-instrumentation-agent-8.14.jar\""
++fi
+ 
++# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+ # Collect all arguments for the java command:
+ #   * DEFAULT_JVM_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
+ #     and any embedded shellness will be escaped.
+@@ -211,10 +228,10 @@ DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'" \"-javaagent:$APP_HOME/lib/agents/gradle
+ #     treated as '${Hostname}' itself on the command line.
+ 
+ set -- \
+-        "-Dorg.gradle.appname=$APP_BASE_NAME" \
+-        -classpath "$CLASSPATH" \
+-        -jar "$APP_HOME/lib/gradle-gradle-cli-main-8.14.jar" \
+-        "$@"
++       "-Dorg.gradle.appname=$APP_BASE_NAME" \
++       -classpath "$CLASSPATH" \
++       -jar "$APP_HOME/lib/gradle-gradle-cli-main-8.14.jar" \
++       "$@"
+ 
+ # Stop when "xargs" is not available.
+ if ! command -v xargs >/dev/null 2>&1
