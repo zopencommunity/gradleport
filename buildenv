@@ -19,7 +19,7 @@ export GRADLE_ZIP_SUFFIX="-bin.zip"
 ###
 
 ## Specify the default build line, either 'DEV' or 'STABLE' (default: STABLE)
-export ZOPEN_BUILD_LINE="STABLE"
+export ZOPEN_BUILD_LINE="DEV"
 
 ## Required IF ZOPEN_BUILD_LINE='STABLE'
 export ZOPEN_STABLE_URL="https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}${GRADLE_ZIP_SUFFIX}"  # Specify the stable build URL (either git or tarball)
