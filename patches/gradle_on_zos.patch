@@ -1,7 +1,7 @@
-diff --git a/bin/gradle.ibm1047 b/bin/gradle.ibm1047
-index ace89a4..d1137f1 100755
---- a/bin/gradle.ibm1047
-+++ b/bin/gradle.ibm1047
+diff --git a/bin/gradle b/bin/gradle
+index 7706459..f4401a4 100755
+--- a/bin/gradle
++++ b/bin/gradle
 @@ -86,7 +86,10 @@ done
  # shellcheck disable=SC2034
  APP_BASE_NAME=${0##*/}
@@ -39,7 +39,7 @@ index ace89a4..d1137f1 100755
 +    # does not allow a remote connection from !0.0.0.0. Code-walking the gradle code
 +    # yields the following environment variable which hard-codes the listener ip.
 +    export OPENSHIFT_IP="127.0.0.1"
-+    DEFAULT_JVM_OPTS="\"-Dfile.encoding=UTF-8\" \"-Djava.net.preferIPv4Stack=true\" \"-javaagent:$APP_HOME/lib/agents/gradle-instrumentation-agent-8.14.jar\""
++    DEFAULT_JVM_OPTS="\"-Dfile.encoding=UTF-8\" \"-Dorg.gradle.native=false\" \"-Djava.net.preferIPv4Stack=true\" \"-javaagent:$APP_HOME/lib/agents/gradle-instrumentation-agent-8.14.jar\""
 +    # Need to ensure that any terminal input is autoconverted
 +    export _BPXK_AUTOCVT=ON
 +else

@@ -167,15 +167,10 @@ zopen_pre_patch(){
   ## This function runs before the 'patch' step of the build is run.
   # Copy the gradle launch script ready for patching to resolve gradle issues
   # with starting on z/OS: https://github.com/gradle/gradle/issues/32153
-  pwd
-  mv "bin/gradle" "bin/gradle.utf8"
-  chtag -tc "UTF-8" "bin/gradle.utf8"
-  iconv -f "UTF-8" -t "IBM-1047" "bin/gradle.utf8" > "bin/gradle.ibm1047"
-  chtag -tc "IBM-1047" "bin/gradle.ibm1047"
-  chmod +x "bin/gradle.ibm1047"
-  ln -s "gradle.ibm1047" "bin/gradle"
+  chtag -tc "UTF-8" "bin/gradle"
+  chmod +x "bin/gradle"
   git add .
-  git commit -m "Add iconv'd scripts and symlinks"
+  git commit -m "Tag and chmod gradle launch script"
   git reset --hard   # Seems to be needed??
 }
 
