@@ -73,7 +73,14 @@ zopen_check_results()
 zopen_get_version()
 {
   export JAVA_HOME=$(dirname $(dirname $(/bin/type java | awk ' { print $3; }')))
-  bin/gradle --version | awk '/Gradle/ { print $2}'
+  gradleDashDashVersion=$(bin/gradle --version)  # Store as a variable for debug
+  version=$(echo "${gradleDashDashVersion}" | awk '/Gradle/ { print $2}')
+  if [ $(echo "${version}" | wc -l) -ne 1 ]; then
+    printSoftError "Version string incorrectly parsed:"
+    printError "Output: ${gradleDashDashVersion}"
+  else
+    echo "${version}"
+  fi
 }
 
 ###
